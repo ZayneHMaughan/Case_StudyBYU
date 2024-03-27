@@ -1,41 +1,38 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
-
-# Read the data
-day_data = pd.read_csv("day_data.csv")
-
-# Convert holiday column to binary encoding
-day_data['holiday'] = day_data['holiday'].apply(lambda x: 0 if pd.isna(x) else 1)
-
-# Convert date column to datetime format
-day_data['date'] = pd.to_datetime(day_data['date'])
-
-# Split data into features (X) and target variable (Y)
-Y = day_data['arrest']
-X = day_data.drop(columns=['arrest', 'date'])
-
-# One-hot encode categorical variables
-X = pd.get_dummies(X, prefix='wd')
-
-# Train-test split
-X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=.2, random_state=24)
-
-# Train Random Forest model
-random_forest = RandomForestRegressor(random_state=42)
-random_forest.fit(X_train, y_train)
-
-# Evaluate model on testing data
-y_pred_rf = random_forest.predict(X_test)
-mse_rf = mean_squared_error(y_test, y_pred_rf)
-print("Random Forest MSE:", mse_rf)
-
-
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import train_test_split
+from math import sqrt
 import shap
-# Compute SHAP values
-explainer = shap.TreeExplainer(random_forest)
-shap_values = explainer.shap_values(X_test)
 
-# Summarize SHAP values
+day_data = pd.read_csv('day_data.csv')
+day_data['date'] = pd.to_datetime(day_data['date'], format="%Y-%m-%d")
+
+train_data = day_data[day_data['date'] < '2024-01-01']
+test_data = day_data[(day_data['date'] >= '2024-01-01') & (day_data['date'] <= '2024-01-31')]
+
+features = ['moon', 'arrest', 'wPC1', 'wPC2', 'wPC3']
+target = 'num_crimes'
+
+X_train = train_data[features]
+y_train = train_data[target]
+X_test = test_data[features]
+y_test = test_data[target]
+
+rf_model = RandomForestRegressor(random_state=42)
+rf_model.fit(X_train, y_train)
+
+predictions = rf_model.predict(X_test)
+
+# MSE
+mse = mean_squared_error(y_test, predictions)
+print(f'Mean Squared Error: {mse}')
+
+# RMSE
+rmse = sqrt(mean_squared_error(y_test, predictions))
+print("Root Mean Squared Error (RMSE) for Random Forest:", rmse)
+
+# SHAP 
+explainer = shap.TreeExplainer(rf_model)
+shap_values = explainer.shap_values(X_test)
 shap.summary_plot(shap_values, X_test, plot_type='bar')
